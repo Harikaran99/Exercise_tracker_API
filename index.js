@@ -89,11 +89,23 @@ app.post("/api/users/:_id/exercises",async (req, res, next) => {
     username: userName.username,
     ...logs
   })
-
   next()
 })
 
+app.get("/api/users/:_id/logs", async(req, res) => {
+  const id = req.params._id
+  const userName =  await Users.findById(id)
+  const logs = await Logs.findById(id)
 
+  let resObj = {
+    username: userName.username,
+    count: logs.logs.length,
+    _id: id,
+    log: logs.logs
+  }
+
+  res.json(resObj)
+})
 
 
 const listener = app.listen(process.env.PORT || 3000, () => {

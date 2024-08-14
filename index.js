@@ -64,20 +64,21 @@ app.post("/api/users/:_id/exercises",async (req, res, next) => {
   const id = new mongoose.Types.ObjectId(req.params._id)
   const userName = await Users.findById(id)
   const description = req.body.description 
-  const duration = req.body.duration 
-  const date = !!req.body.date ? new Date(req.body.date).toDateString() : new Date().toDateString()
+  const duration = new Number(req.body.duration)
+  const date = !!req.body.date ? new Date(req.body.date) * 1 : new Date() * 1
   const checkIdExitsInUser = await Users.findById(id).then(doc => !!doc).catch(() => false)
   const checkIdExitsInLogs = await Logs.findById(id).then(doc => !!doc).catch(() => false)
   const logs = {
     description: description,
     duration: duration,
-    date: date}
+    date: date
+  }
   if(checkIdExitsInUser && checkIdExitsInLogs) {
     var LogsRecord = await Logs.findByIdAndUpdate(id ,{ $push: {logs: logs} }, {new: true, useFindAndModify: false}) 
   } else if(checkIdExitsInUser && !checkIdExitsInLogs) {
     var LogsRecord = new Logs({
       _id: id,
-      logs: [logs]
+      logs: [logs],
     })
     LogsRecord.save()
   } else if(!checkIdExitsInUser && !checkIdExitsInLogs) {
@@ -87,25 +88,37 @@ app.post("/api/users/:_id/exercises",async (req, res, next) => {
   res.json({
     _id: id,
     username: userName.username,
-    ...logs
+    ...logs,
+    date: new Date(logs.date).toDateString()
   })
   next()
 })
 
 app.get("/api/users/:_id/logs", async(req, res) => {
   const id = req.params._id
-  const userName =  await Users.findById(id)
-  const logs = await Logs.findById(id)
-
+  const formQuery = req.query
+  const {username} =  await Users.findById(id)
+  const {logs} = await Logs.findById(id)
   let resObj = {
-    username: userName.username,
-    count: logs.logs.length,
+    username: username,
+    count: logs.length,
     _id: id,
-    log: logs.logs
   }
 
-  res.json(resObj)
+  logs.forEach(obs => obs.date = new Date(new Number(obs.date)).toDateString())
+  if(Object.keys(formQuery).length !== 0) {
+    const fromDate = new Date(formQuery.from)*1
+    const toDate = new Date(formQuery.to)*1
+    resObj.log = logs.map(obs => fromDate <= new Date(obs.date)*1 && toDate >= new Date(obs.date)*1 ? obs : "").filter(obs => obs)
+    resObj.log.forEach(obs => obs.date = new Date(obs.date).toDateString())
+    resObj.log = formQuery.limit ? resObj.log.slice(0, new Number(formQuery.limit)) : logs
+    resObj.count = resObj.log.length
+  } else resObj.log = logs
+  
+    res.json(resObj)
+  
 })
+
 
 
 const listener = app.listen(process.env.PORT || 3000, () => {
